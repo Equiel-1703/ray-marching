@@ -33,8 +33,11 @@ let gl = null;
 /** @type {WebGLUtils} */
 let wgl_utils = null;
 
-let program = null;
+/** @type {Camera} */
 let camera = null;
+
+/** @type {WebGLProgram} */
+let program = null;
 
 // ----------- MAIN FUNCTION --------------
 async function main() {
@@ -81,7 +84,7 @@ async function main() {
     const aspect_ratio = canvas.width / canvas.height;
     const near = 0.1;
     const far = 1000;
-    // TODO: Check if we need a projection matrix
+    // TODO: Check if we really need a projection matrix
 
     // Creating camera
     camera = new Camera(new Vec4(0, 0, 0, 1)); // By default, the camera is looking in the positive Z direction
@@ -114,6 +117,7 @@ function setupRender() {
     gl.bindBuffer(gl.ARRAY_BUFFER, square_buffer);
     gl.bufferData(gl.ARRAY_BUFFER, square_vertices, gl.STATIC_DRAW);
 
+    // Set up the vertex attribute
     const position_location = gl.getAttribLocation(program, 'a_position');
     gl.vertexAttribPointer(position_location, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(position_location);
@@ -125,11 +129,9 @@ function setupRender() {
 
 // ---------------------------------- RENDER CALLBACK ----------------------------------
 async function renderCallBack(s_time) {
-    const u_camera_matrix = gl.getUniformLocation(program, 'u_camera_matrix');
-
-    // Set camera matrix
-    const camera_matrix = camera.getCameraMatrix();
-    gl.uniformMatrix4fv(u_camera_matrix, false, camera_matrix);
+    // Update camera position
+    const u_camera_position = gl.getUniformLocation(program, 'u_camera_position');
+    gl.uniform3f(u_camera_position, camera.location.x, camera.location.y, camera.location.z);
 
     wgl_utils.clearCanvas(CLEAR_COLOR, gl);
 
@@ -138,21 +140,20 @@ async function renderCallBack(s_time) {
 
     const end = performance.now();
     const elapsed = end - s_time;
-
     const diff = FPS_LIMIT - elapsed;
 
     // Update FPS counter in HTML
     document.getElementById('fps_counter').innerText = `FPS: ${Math.round(1000 / (elapsed + Math.abs(diff)))}`;
 
-    const callback = () => {
-        requestAnimationFrame(renderCallBack);
-    }
+    // const callback = () => {
+    //     requestAnimationFrame(renderCallBack);
+    // }
 
-    if (diff > 0) {
-        setTimeout(callback, diff);
-    } else {
-        callback();
-    }
+    // if (diff > 0) {
+    //     setTimeout(callback, diff);
+    // } else {
+    //     callback();
+    // }
 }
 
 main();
