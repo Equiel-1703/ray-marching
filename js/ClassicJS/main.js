@@ -84,7 +84,7 @@ async function main() {
     // TODO: Check if we need a projection matrix
 
     // Creating camera
-    camera = new Camera(new Vec4(0, 0, -10, 1)); // By default, the camera is looking in the positive Z direction
+    camera = new Camera(new Vec4(0, 0, 0, 1)); // By default, the camera is looking in the positive Z direction
 
     // Here I set that if the user presses the space bar, the camera stats will be logged
     document.addEventListener('keydown', (e) => {
@@ -94,6 +94,7 @@ async function main() {
     });
 
     // ------------- Rendering -------------
+    setupRender();
     requestAnimationFrame(renderCallBack);
 }
 
@@ -101,10 +102,10 @@ async function main() {
 function setupRender() {
     // I will create a square to fill the canvas
     // This will trigger the fragment shader for each pixel
-    square_vertices = new Float32Array([
+    const square_vertices = new Float32Array([
         -1.0, -1.0, 0.0,
-        -1.0, 1.0, 0.0,
         1.0, -1.0, 0.0,
+        -1.0, 1.0, 0.0,
         1.0, 1.0, 0.0
     ]);
 
@@ -115,15 +116,16 @@ function setupRender() {
 
     const position_location = gl.getAttribLocation(program, 'a_position');
     gl.vertexAttribPointer(position_location, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(position_location);
 
     // Set image resolution
+    const u_image_resolution = gl.getUniformLocation(program, 'u_image_resolution');
     gl.uniform2f(u_image_resolution, gl.canvas.width, gl.canvas.height);
 }
 
 // ---------------------------------- RENDER CALLBACK ----------------------------------
 async function renderCallBack(s_time) {
     const u_camera_matrix = gl.getUniformLocation(program, 'u_camera_matrix');
-    const u_image_resolution = gl.getUniformLocation(program, 'u_image_resolution');
 
     // Set camera matrix
     const camera_matrix = camera.getCameraMatrix();
