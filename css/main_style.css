@@ -1,0 +1,343 @@
+@import url('https://fonts.googleapis.com/css2?family=Poiret+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap');
+
+html {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    
+    height: 100%;
+    min-width: fit-content;
+
+    box-sizing: border-box;
+
+    background-color: black;
+    color: white;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+/* Header styling */
+header {
+    width: auto;
+    text-align: center;
+}
+
+/* Titles styling */
+@keyframes title-animation {
+    0% {
+        opacity: 0;
+        transform: translateY(-1.5rem);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes row-animation {
+    0% {
+        opacity: 0;
+        width: 0%;
+    }
+
+    100% {
+        opacity: 1;
+        width: 110%;
+        transform: translate(-5%, 0);
+    }
+}
+
+@keyframes subtitle-animation {
+    0% {
+        opacity: 0;
+        transform: translateY(-1.5rem);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+div#assignment-title {
+    margin-top: 3rem;
+    margin-bottom: 1rem;
+
+    overflow: hidden;
+
+    animation: title-animation 1s;
+    animation-delay: 0.5s;
+    animation-fill-mode: both;
+}
+
+h1 {
+    font-family: "Poiret One", serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 3rem;
+
+    margin: 0;
+    padding: 0;
+}
+
+#title-row {
+    animation: row-animation 1s;
+    animation-delay: 500ms;
+    animation-fill-mode: both;
+
+    margin: 0;
+}
+
+div#university-subtitle {
+    margin-top: 1rem;
+    margin-bottom: 0rem;
+
+    overflow: hidden;
+}
+
+h2 {
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    letter-spacing: 0.25rem;
+
+    margin: 0;
+    padding: 0;
+
+    animation: subtitle-animation 1s;
+    animation-delay: 1s;
+    animation-fill-mode: both;
+}
+
+
+
+/********* Main section styling **************/
+:root {
+    --app-bg-color: rgb(20, 20, 20);
+    --app-active-color: rgb(45, 45, 45);
+    --app-dark-bg-color: rgb(10, 10, 10);
+}
+
+main {
+    margin: 3rem 0;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    width: fit-content;
+    height: min-content;
+}
+
+@keyframes app-animation {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+
+}
+
+#app_container {
+    user-select: none;
+
+    margin: 0;
+    margin-bottom: 1.5rem;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    height: 450px;
+    background-color: var(--app-bg-color);
+
+    border-radius: 0.5rem;
+    overflow: hidden;
+
+    font-family: "Source Code Pro", serif;
+    font-weight: 300;
+    font-style: normal;
+    font-size: 1rem;
+
+    animation: app-animation 1s;
+    animation-delay: 1s;
+    animation-fill-mode: both;
+}
+
+.menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+
+    text-align: center;
+
+    width: 340px;
+    height: 100%;
+
+    padding: 0;
+}
+
+
+#load_save_container {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+
+    background-color: var(--app-dark-bg-color);
+}
+
+#load_save_container input {
+    display: none;
+}
+
+#load_save_container label,
+#load_save_container button {
+    padding: 0.5rem;
+
+    background-color: var(--app-dark-color);
+    color: white;
+
+    border: none;
+
+    text-align: center;
+
+    font-family: "Source Code Pro", serif;
+    font-weight: 300;
+    font-style: normal;
+    font-size: 0.8rem;
+}
+
+#load_save_container label:hover,
+#load_save_container button:hover {
+    background-color: var(--app-active-color);
+}
+
+#load_save_container label:active,
+#load_save_container button:active {
+    background-color: var(--app-bg-color);
+}
+
+.dpads {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    user-select: none;
+
+    gap: 0.5rem;
+
+    padding: 0.5rem;
+
+    width: auto;
+    height: 100%;
+}
+
+#dpad_down {
+    transform: scale(1, -1);
+}
+
+.model_properties label {
+    display: flex;
+
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+}
+
+#fps_counter {
+    text-wrap: nowrap;
+    background-color: var(--app-dark-bg-color);
+
+    padding: 0.5rem;
+    margin: 0;
+
+    font-size: 0.8rem;
+
+    width: 100%;
+    height: auto;
+
+    box-sizing: border-box;
+}
+
+/* Canvas styling */
+canvas {
+    margin: 0;
+    border: none;
+}
+
+/* Log styling */
+#log_output {
+    width: 100%;
+    height: 20rem;
+    box-sizing: border-box;
+
+    overflow-wrap: break-word;
+    overflow-y: auto;
+
+    padding: 1rem;
+
+    border: 1px solid white;
+}
+
+#log_output>* {
+    font-family: "Source Code Pro", serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 1rem;
+
+    color: white;
+
+    margin: 0.5rem 0;
+}
+
+#logs_info {
+    margin: 1rem 0;
+    text-align: center;
+    font-weight: 700;
+}
+
+
+/****************  Footer styling ****************/
+footer {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+
+    background-color: rgb(20, 20, 20);
+}
+
+#author,
+footer>p {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 1rem;
+    font-weight: 300;
+}
+
+#author {
+    font-weight: 500;
+}

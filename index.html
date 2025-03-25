@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0" />
+
+    <title>Ray Marching</title>
+
+    <link rel="stylesheet" href="./css/main_style.css" />
+
+    <link rel="icon" type="image/png" href="./imgs/icon_site_hgb.png" />
+</head>
+
+<body>
+    <header>
+        <div id="assignment-title">
+            <h1>The Ray Marching Technique</h1>
+        </div>
+        <hr id="title-row" />
+        <div id="university-subtitle">
+            <h2>Federal University of Pelotas</h2>
+        </div>
+    </header>
+
+    <main>
+        <div id="app_container">
+            <canvas height="540px" width="960" id="glcanvas">
+                Seu navegador não suporta canvas.
+            </canvas>
+            <div>
+                <p id="fps_counter">FPS: 0</p>
+            </div>
+        </div>
+
+        <div id="log_output">
+            <h3 id="logs_info">Application logs will appear here</h3>
+        </div>
+    </main>
+
+    <footer>
+        <p>© <span id="author">HENRIQUE GABRIEL RODRIGUES BARRAZ</span></p>
+        <p>Pelotas, 2025</p>
+    </footer>
+
+    <script type="module" src="./js/ClassicJS/main.js"></script>
+</body>
+
+</html>
