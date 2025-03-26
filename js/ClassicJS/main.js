@@ -1,6 +1,5 @@
 import OutputLog from "../Logging/OutputLog.js";
 import FileLoader from "../FileProcessing/FileLoader.js";
-
 import { Color, WebGLUtils } from "../3DStuff/WebGLUtils.js";
 import GraphicsMath from "../3DStuff/GraphicsMath.js";
 import Vec4 from "../3DStuff/Vec4.js";
@@ -15,8 +14,8 @@ function initializeLog() {
 }
 
 // ----------- GLOBAL PARAMETERS --------------
-const FPS = 60;
-const FPS_LIMIT = 1000 / FPS;
+const FPS = 30;
+const FRAME_RENDER_LIMIT = 1000 / FPS; // Frame render limit (in milliseconds)
 const CAMERA_SPEED = 6; // Camera speed (pixels per second)
 
 const CLEAR_COLOR = new Color(0.4, 0.4, 0.4, 1.0); // Clear color (60% gray)
@@ -87,7 +86,7 @@ async function main() {
     // TODO: Check if we really need a projection matrix
 
     // Creating camera
-    camera = new Camera(new Vec4(0, 0, 0, 1)); // By default, the camera is looking in the positive Z direction
+    camera = new Camera(new Vec4(0, 0, -50, 1)); // By default, the camera is looking in the positive Z direction
 
     // Here I set that if the user presses the space bar, the camera stats will be logged
     document.addEventListener('keydown', (e) => {
@@ -160,8 +159,8 @@ async function renderCallBack(s_time) {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     const end = performance.now();
-    const elapsed = end - s_time;
-    const diff = FPS_LIMIT - elapsed;
+    const elapsed = end - s_time; // This is the time taken to render the frame (in milliseconds)
+    const diff = FRAME_RENDER_LIMIT - elapsed; // This is the time we need to wait until the next frame (If we need to wait)
 
     // Update FPS counter in HTML
     document.getElementById('fps_counter').innerText = `FPS: ${Math.round(1000 / (elapsed + Math.abs(diff)))}`;
