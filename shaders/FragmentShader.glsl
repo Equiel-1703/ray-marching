@@ -107,42 +107,9 @@ float sdf_quadrangle(vec3 point, Quadrangle cube) {
     return length(max(d, 0.0f)) + min(max(d.x, max(d.y, d.z)), 0.0f);
 }
 
-float sdf_flat_disk(vec3 p, float innerRadius, float outerRadius, float thickness) {
-    vec2 q = vec2(length(p.xz), abs(p.y));
+float sdf_flat_disk(vec3 p, vec3 center, float innerRadius, float outerRadius, float thickness) {
+    vec2 q = vec2(length(p.xz - center.xy), abs(p.y - center.y));
     return max(q.y - thickness, max(innerRadius - q.x, q.x - outerRadius));
-}
-
-/**
- * Return the normalized direction to march in from the camera to a single pixel.
- * 
- * fieldOfView: vertical field of view in degrees
- * size: resolution of the output image
- * fragCoord: the x,y coordinate of the pixel in the output image
- */
-vec3 ray_direction(float field_of_view, vec2 size, vec2 frag_coord) {
-    // This is taking the fragCoord (which goes from 0 to size)
-    // and converting its to a coordinate range [-size/2, size/2]
-    vec2 xy = frag_coord - size / 2.0f;
-
-    // Calculate distance from the camera to the near plane
-    // This uses a trigonometric trick to calculate the distance
-    float z = size.y / tan(radians(field_of_view) / 2.0f);
-
-    // Return the normalized direction vector
-    return normalize(vec3(xy, z));
-}
-
-/**
- * Return a transform matrix that will transform a ray from view space
- * to world coordinates, given the camera location, the camera target, and an up vector.
- *
- * This assumes that the camera is looking at the positive z direction.
- */
-mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
-    vec3 f = normalize(target); // Forward vector
-    vec3 s = normalize(cross(f, up));
-    vec3 u = cross(s, f);
-    return mat3(s, u, f);
 }
 
 // ------------------------- RAY MARCH CONSTANTS -------------------------
@@ -165,19 +132,22 @@ struct RayHit {
 const vec3 SATURN_POSITION = vec3(0.0f, 0.0f, 0.0f);
 const float SATURN_RADIUS = 30.0f;
 
-const float RING_INNER_RADIUS = 50.0f;  // Saturn's radius = 30.0
+const float RING_INNER_RADIUS = 50.0f;
 const float RING_OUTER_RADIUS = 70.0f;
 const float RING_THICKNESS = 0.04f;
+const float RING_GLOW_POWER = 2.0f;
+const vec3 RING_GLOW_COLOR = vec3(0.1f, 0.5f, 1.0f);
 
 const vec3 MOON_POSITION = vec3(50.0f, 50.0f, 30.0f);
 const float MOON_RADIUS = 10.0f;
+const vec4 MOON_COLOR = vec4(0.8f, 0.8f, 0.8f, 1.0f); // Light gray color
 
 // This function defines the moon and returns its distance and color
 RayHit moon(vec3 point) {
     Sphere moon;
     moon.position = MOON_POSITION;
     moon.radius = MOON_RADIUS;
-    moon.color = vec4(0.8f, 0.8f, 0.8f, 1.0f); // Moon color
+    moon.color = MOON_COLOR;
     const float DISTORTION_FACTOR = 0.4f;
 
     RayHit ret;
@@ -187,42 +157,45 @@ RayHit moon(vec3 point) {
     return ret;
 }
 
-float rings(vec3 p) {
-    return sdf_flat_disk(p, RING_INNER_RADIUS, RING_OUTER_RADIUS, RING_THICKNESS);
+RayHit rings(vec3 p) {
+    RayHit ret;
+
+    float distance = sdf_flat_disk(p, SATURN_POSITION, RING_INNER_RADIUS, RING_OUTER_RADIUS, RING_THICKNESS);
+
+    ret.distance = distance;
+    ret.color = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Default color, we will compute it in main
+
+    return ret;
 }
 
 vec3 get_ring_color(vec3 p, vec3 normal, vec3 viewDir) {
-    // Ring coordinates
     float dist = length(p.xz);
-    float angle = atan(p.z, p.x);  // For radial patterns
+    float normDist = smoothstep(0.0f, 1.0f, (dist - RING_INNER_RADIUS) / (RING_OUTER_RADIUS - RING_INNER_RADIUS));
+    float angle = atan(p.z, p.x);
 
-    // Cassini Division (the dark gap)
-    float cassini = smoothstep(1.82f, 1.85f, dist) *
-        smoothstep(1.95f, 1.92f, dist);
+    // Neon color palette
+    vec3 neonBlue = vec3(0.1f, 0.5f, 1.0f) * 3.0f;
+    vec3 neonPink = vec3(1.0f, 0.2f, 0.8f) * 3.0f;
 
-    // Radial bands with noise
-    float bands = 0.5f + 0.5f * sin(angle * 30.0f + dist * 10.0f);
+    // Base ring color
+    vec3 baseColor = mix(neonBlue, neonPink, 0.3f + sin(angle * 5.0f) * 0.3f);
 
-    // Base colors (brownish ice with dust)
-    vec3 innerColor = mix(vec3(0.8f, 0.7f, 0.6f), vec3(0.6f, 0.5f, 0.4f), bands * 0.7f);
+    // Fresnel glow
+    float fresnel = pow(1.0f - abs(dot(normal, viewDir)), 2.0f);
+    baseColor += neonBlue * fresnel * 4.0f;
 
-    vec3 outerColor = mix(vec3(0.9f, 0.85f, 0.8f), vec3(0.7f, 0.65f, 0.6f), bands * 0.5f);
+    return baseColor / (baseColor + 1.0f); // Tonemapping
+}
 
-    // Blend inner->outer colors
-    vec3 color = mix(innerColor, outerColor, smoothstep(RING_INNER_RADIUS, RING_OUTER_RADIUS, dist));
+// Get the glow intensity at point p
+float get_glow_intensity(vec3 p) {
+    float dist = length(p.xz - SATURN_POSITION.xz);
+    float distance_to_rings_edge = abs(dist - RING_OUTER_RADIUS);
 
-    // Apply Cassini Division
-    color = mix(color, vec3(0.3f, 0.25f, 0.2f), cassini);
+    float glow_intensity = 1.0f - RING_GLOW_POWER * smoothstep(0.0f, 1.0f, distance_to_rings_edge / (RING_OUTER_RADIUS - RING_INNER_RADIUS));
+    glow_intensity = max(glow_intensity, 0.0f); // Ensure non-negative
 
-    // Add subtle texture
-    float noise = fract(sin(dot(p.xz, vec2(12.9898f, 78.233f))) * 43758.5453f);
-    color = mix(color, color * 1.1f, noise * 0.2f);
-
-    // Rim lighting
-    float rim = pow(1.0f - abs(dot(normal, viewDir)), 2.0f);
-    color += vec3(0.8f, 0.9f, 1.0f) * rim * 0.3f;
-
-    return color;
+    return glow_intensity;
 }
 
 // This function defines the planet Saturn and returns its distance
@@ -233,7 +206,7 @@ RayHit saturn(vec3 point) {
 
     RayHit ret;
     ret.distance = sdf_sphere(point, saturn);
-    ret.color = vec4(0.0f); // Default color, we will compute it in main
+    ret.color = vec4(vec3(1.0f), 1.0f); // Default color, we will compute it in main
 
     return ret;
 }
@@ -282,25 +255,26 @@ vec3 get_saturn_color(vec3 pos, vec3 normal, vec3 view_dir) {
 // It is called from the ray_march function
 // Updated scene function with rings
 RayHit scene(vec3 point) {
-    const int NO_OBJECTS = 3;
+    const int NO_OBJECTS = 2; // Number of objects in the scene
 
-    // Moon
     RayHit moon = moon(point);
-    // Saturn
     RayHit saturn = saturn(point);
-    // Rings
-    RayHit rings = RayHit(rings(point), vec4(0.0f)); // Distance only, color handled later
+    RayHit rings = rings(point);
 
-    // Let's find the nearest surface
-    RayHit hits[NO_OBJECTS] = RayHit[](moon, saturn, rings);
-
+    // Find nearest solid object
+    RayHit hits[NO_OBJECTS] = RayHit[NO_OBJECTS](moon, saturn);
+    RayHit nearest = hits[0];
+    
     for(int i = 1; i < NO_OBJECTS; i++) {
-        if(hits[i].distance < hits[0].distance) {
-            hits[0] = hits[i];
+        if(hits[i].distance < nearest.distance) {
+            nearest = hits[i];
         }
     }
 
-    return hits[0];
+    // Add glow
+    // nearest.color.rgb += get_glow_intensity(point) * RING_GLOW_COLOR;
+
+    return nearest;
 }
 
 // ------------------------- RAY MARCHING -------------------------
@@ -316,32 +290,31 @@ RayHit scene(vec3 point) {
  * If nothing is found, the distance will be set to max_distance and the color will be black.
  */
 RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
-    float distance = 0.0f;
-    vec4 color = vec4(0.0f);
+    float depth = 0.0f;
 
-    // March along the ray
+    RayHit final_hit;
+    final_hit.distance = max_distance;
+    final_hit.color = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Default color (black)
+
     for(int i = 0; i < MAX_STEPS; i++) {
-        // Calculate the current point along the ray
-        vec3 point = ray_origin + ray_direction * distance;
-
-        // Check distance to the sphere
+        vec3 point = ray_origin + ray_direction * depth;
         RayHit hit = scene(point);
+
         if(hit.distance <= PROXIMITY_THRESHOLD) {
-            return RayHit(distance + hit.distance, hit.color);
+            final_hit.distance = depth + hit.distance;
+            final_hit.color = hit.color;
+            break;
         }
 
-        // Move to the next point along the ray
-        distance += hit.distance;
+        depth += hit.distance;
 
-        // Check if we are too far away
-        if(distance > max_distance) {
+        if(depth > max_distance) {
             break;
         }
     }
 
-    return RayHit(distance, color);
+    return final_hit;
 }
-
 // ------------------------- LIGHTING -------------------------
 
 // Light positions
@@ -475,8 +448,43 @@ float compute_lighting_and_shadows(vec3 p, vec3 view_dir) {
     return tone_map(total);
 }
 
+// ---------------------------------------- UTILITIES ----------------------------------------
+/**
+ * Return the normalized direction to march in from the camera to a single pixel.
+ * 
+ * fieldOfView: vertical field of view in degrees
+ * size: resolution of the output image
+ * fragCoord: the x,y coordinate of the pixel in the output image
+ */
+vec3 ray_direction(float field_of_view, vec2 size, vec2 frag_coord) {
+    // This is taking the fragCoord (which goes from 0 to size)
+    // and converting its to a coordinate range [-size/2, size/2]
+    vec2 xy = frag_coord - size / 2.0f;
+
+    // Calculate distance from the camera to the near plane
+    // This uses a trigonometric trick to calculate the distance
+    float z = size.y / tan(radians(field_of_view) / 2.0f);
+
+    // Return the normalized direction vector
+    return normalize(vec3(xy, z));
+}
+
+/**
+ * Return a transform matrix that will transform a ray from view space
+ * to world coordinates, given the camera location, the camera target, and an up vector.
+ *
+ * This assumes that the camera is looking at the positive z direction.
+ */
+mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
+    vec3 f = normalize(target); // Forward vector
+    vec3 s = normalize(cross(f, up));
+    vec3 u = cross(s, f);
+    return mat3(s, u, f);
+}
+
+
 void main() {
-    // Calculate ray direction (existing code)
+    // Calculate ray direction
     vec2 pixel_coord = v_uv * u_image_resolution;
     mat3 view_to_world = view_to_world_matrix(u_camera_position, u_camera_target, u_camera_up);
     vec3 ray_direction = view_to_world * ray_direction(60.0f, u_image_resolution, pixel_coord);
@@ -488,25 +496,38 @@ void main() {
         vec3 point = u_camera_position + ray_direction * hit.distance;
         vec3 view_dir = normalize(u_camera_position - point);
 
-        // Determine what we hit
-        if(rings(point) <= PROXIMITY_THRESHOLD) {
-            // Ring specific shading
-            vec3 ring_normal = vec3(0, sign(point.y), 0);
-            hit.color = vec4(get_ring_color(point, ring_normal, ray_direction), 0.8f);
-        } else if(saturn(point).distance <= PROXIMITY_THRESHOLD) {
+        vec3 surface_color = vec3(0.1f, 0.58f, 0.1f);
+        float alpha = 1.0f;
+
+        // // Determine what we hit
+        // if(rings(point).distance <= PROXIMITY_THRESHOLD) {
+        //     // Ring specific shading
+        //     vec3 ring_normal = vec3(0, sign(point.y), 0);
+        //     surface_color = get_ring_color(point, ring_normal, view_dir);
+        //     alpha = 0.8f; // Slightly transparent rings
+        // } else 
+        
+        if(saturn(point).distance <= PROXIMITY_THRESHOLD) {
             // Planet shading
             vec3 normal = get_normal(point);
-            hit.color = vec4(get_saturn_color(point, normal, view_dir), 1.0f);
-        }
+            surface_color = get_saturn_color(point, normal, view_dir);
 
-        // Apply lighting (except for rings)
-        if(rings(point) > PROXIMITY_THRESHOLD) {
+            // Apply lighting to planets (not rings)
             float light_intensity = compute_lighting_and_shadows(point, view_dir);
-            hit.color.rgb *= light_intensity;
+            surface_color *= light_intensity;
+        } else if(moon(point).distance <= PROXIMITY_THRESHOLD + 0.1f) {
+            // Moon shading (use the color alredy set in moon() function)
+            surface_color = hit.color.rgb;
+
+            // Apply lighting to moon
+            float light_intensity = compute_lighting_and_shadows(point, view_dir);
+            surface_color *= light_intensity;
         }
 
-        o_frag_color = hit.color;
+        // Apply glow as additive blending
+        o_frag_color = vec4(surface_color, alpha);
     } else {
-        o_frag_color = vec4(0.07f, 0.07f, 0.07f, 1.0f);
+        // Apply default color
+        o_frag_color = hit.color;
     }
 }
