@@ -35,18 +35,20 @@ float noise(vec3 p) {
 }
 
 float turbulence(vec3 p) {
-    float sum = 0.0;
-    float scale = 1.0;
-    float weight = 1.0;
+    float sum = 0.0f;
+    float scale = 1.0f;
+    float weight = 1.0f;
 
-    for (int i = 0; i < 4; i++) {  // 4 octaves of noise
+    for(int i = 0; i < 4; i++) {  // 4 octaves of noise
         sum += abs(noise(p * scale)) * weight;
-        scale *= 2.0;
-        weight *= 0.5;
+        scale *= 2.0f;
+        weight *= 0.5f;
     }
 
     return sum;
 }
+
+// ------------------------- SHAPE DEFINITIONS -------------------------
 
 // Defining objects structs
 struct Sphere {
@@ -106,7 +108,7 @@ mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
 // RAY MARCH CONSTANTS
 
 // The proximity threshold is the distance at which we consider the ray to be close to the surface
-const float PROXIMITY_THRESHOLD = 0.01f;
+const float PROXIMITY_THRESHOLD = 0.001f;
 // The MAX_STEPS constant is the maximum number of steps we will take before giving up on finding a surface
 const int MAX_STEPS = 100;
 
@@ -122,29 +124,20 @@ struct RayHit {
 // It is called from the ray_march function
 RayHit scene(vec3 point) {
     Sphere moon;
-    Quadrangle q1;
 
     // Define a sphere
     moon.position = vec3(0.0f, 1.0f, 5.0f);
-    moon.radius = 1.0f;
+    moon.radius = 6.0f;
     moon.color = vec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
-    float moon_dist_amount = 0.2f;
-
-    // Define a cube
-    q1.position = vec3(0.0f, -1.0f, 5.0f);
-    q1.size = vec3(1.0f, 1.0f, 1.0f);
-    q1.color = vec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
+    float moon_dist_amount = 0.3f;
 
     // Calculate the distance to the moon
-    float d1 = SDF_Sphere(point, moon) + moon_dist_amount * turbulence(point * 1.0f);
+    float d1 = SDF_Sphere(point, moon) + moon_dist_amount * turbulence(point * 0.7f);
 
-    // Calculate the distance to the cube
-    float d2 = SDF_Quadrangle(point, q1);
+    // purple color just for the sake of it
+    vec4 color = vec4(0.47f, 0.08f, 0.65f, 1.0f);
 
-    float dist = min(d1, d2);
-    vec4 color = max(moon.color, q1.color);
-
-    return RayHit(dist, color);
+    return RayHit(d1, color);
 }
 
 // ------------------------- RAY MARCHING -------------------------
@@ -186,6 +179,60 @@ RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
     return RayHit(distance, color);
 }
 
+// ------------------------- LIGHTING -------------------------
+
+// Light position
+vec3 lightPos = vec3(0.0f, 10.0f, -50.0f);
+
+// This function approximates the normal at a point in space by sampling the distance function
+// at a small distance in each direction and taking the gradient
+vec3 getNormal(vec3 p) {
+    const float eps = 0.0001f; // Small distance to sample the distance function
+    vec3 n;
+    n.x = scene(p + vec3(eps, 0.0f, 0.0f)).distance - scene(p - vec3(eps, 0.0f, 0.0f)).distance;
+    n.y = scene(p + vec3(0.0f, eps, 0.0f)).distance - scene(p - vec3(0.0f, eps, 0.0f)).distance;
+    n.z = scene(p + vec3(0.0f, 0.0f, eps)).distance - scene(p - vec3(0.0f, 0.0f, eps)).distance;
+    return normalize(n);
+}
+
+// Compute the diffuse lighting at a point in space
+float computeDiffuse(vec3 p) {
+    vec3 normal = getNormal(p);
+    vec3 lightDir = normalize(lightPos - p);
+    return max(dot(normal, lightDir), 0.0f);
+}
+
+float computeSpecular(vec3 p, vec3 viewDir) {
+    vec3 normal = getNormal(p);
+    vec3 lightDir = normalize(lightPos - p);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    return pow(max(dot(normal, halfwayDir), 0.0f), 50.0f); // 32 = shininess
+}
+
+// Compute the light intesity at a point in space
+float computeLighting(vec3 p, vec3 viewDir) {
+    float ambient = 0.2f;  // Low base light
+    float diffuse = computeDiffuse(p);
+    float specular = computeSpecular(p, viewDir);
+
+    return (ambient + diffuse) + specular;
+}
+
+// Compute the shadow factor at a point in space
+// The ray marches from the point to the light source and checks if it hits any object
+// The k factor is used to control the softness of the shadow
+float computeShadow(vec3 ro, vec3 rd) {
+    float t = 0.1f, k = 8.0f; // Shadow softness
+    for(int i = 0; i < 16; i++) {
+        float d = scene(ro + rd * t).distance;
+        if(d < PROXIMITY_THRESHOLD)
+            return 0.0f; // In shadow
+        k = min(k, 8.0f * d / t);
+        t += d;
+    }
+    return k;
+}
+
 void main() {
     // Use uv to calculate the pixel coordinate (in view space)
     // The pixel coordinate is in the range [0, u_image_resolution]
@@ -207,7 +254,23 @@ void main() {
 
     if(hit.distance < MAX_DISTANCE) {
         // If we hit something, set the fragment color to the hit color darkened by the distance
-        o_frag_color = vec4(hit.color.rgb * (1.0f - (hit.distance * 5.0f / MAX_DISTANCE)), 1.0f);
+        // and influenced by the lighting and shadow
+        o_frag_color = hit.color;
+
+        // Calculate the point in world space where we hit with the ray
+        vec3 point = hit.distance * ray_direction + u_camera_position;
+
+        // Add shadow factor
+        float shadow_factor = computeShadow(point, normalize(lightPos - point));
+        o_frag_color.rgb *= shadow_factor * 0.35f;
+
+        // Compute lighting
+        float light_intensity = computeLighting(point, normalize(u_camera_position - point));
+        o_frag_color.rgb *= light_intensity;
+
+        // Darken the color based on distance
+        o_frag_color.rgb *= 1.0f - (hit.distance / MAX_DISTANCE);
+
     } else {
         // If we didn't hit anything, just set to the default non-hit color
         o_frag_color = vec4(0.07f, 0.07f, 0.07f, 1.0f);
