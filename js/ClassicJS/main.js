@@ -147,7 +147,7 @@ async function renderCallBack(s_time) {
     camera.setRotationY(GraphicsMath.degToRad(y_angle));
 
     // Setting camera position
-    camera.setPosition(x_pos, y_pos, z_pos);
+    camera.setPosition(-x_pos, y_pos, z_pos);
 
     // Updating camera values
     gl.uniform3f(u_camera_position, camera.location.x, camera.location.y, camera.location.z);
