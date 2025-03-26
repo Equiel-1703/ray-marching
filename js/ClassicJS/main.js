@@ -87,7 +87,7 @@ async function main() {
     // TODO: Check if we really need a projection matrix
 
     // Creating camera
-    camera = new Camera(new Vec4(0, 0, 0, 1)); // By default, the camera is looking in the positive Z direction
+    camera = new Camera(new Vec4(0, 0, -10, 1)); // By default, the camera is looking in the positive Z direction
 
     // Here I set that if the user presses the space bar, the camera stats will be logged
     document.addEventListener('keydown', (e) => {
@@ -129,9 +129,19 @@ function setupRender() {
 
 // ---------------------------------- RENDER CALLBACK ----------------------------------
 async function renderCallBack(s_time) {
-    // Update camera position
     const u_camera_position = gl.getUniformLocation(program, 'u_camera_position');
+    const u_camera_target = gl.getUniformLocation(program, 'u_camera_target');
+    const u_camera_up = gl.getUniformLocation(program, 'u_camera_up');
+
+    // Read cam rotation x input
+    const x_angle = document.getElementById('cam_rotation_x').value;
+
+    camera.setRotationX(x_angle * Math.PI / 180);
+
+    // Updating camera values
     gl.uniform3f(u_camera_position, camera.location.x, camera.location.y, camera.location.z);
+    gl.uniform3f(u_camera_target, camera.front_vector.x, camera.front_vector.y, camera.front_vector.z);
+    gl.uniform3f(u_camera_up, camera.up_vector.x, camera.up_vector.y, camera.up_vector.z);
 
     wgl_utils.clearCanvas(CLEAR_COLOR, gl);
 
@@ -145,15 +155,15 @@ async function renderCallBack(s_time) {
     // Update FPS counter in HTML
     document.getElementById('fps_counter').innerText = `FPS: ${Math.round(1000 / (elapsed + Math.abs(diff)))}`;
 
-    // const callback = () => {
-    //     requestAnimationFrame(renderCallBack);
-    // }
+    const callback = () => {
+        requestAnimationFrame(renderCallBack);
+    }
 
-    // if (diff > 0) {
-    //     setTimeout(callback, diff);
-    // } else {
-    //     callback();
-    // }
+    if (diff > 0) {
+        setTimeout(callback, diff);
+    } else {
+        callback();
+    }
 }
 
 main();

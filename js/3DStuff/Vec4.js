@@ -132,6 +132,19 @@ export default class Vec4 {
         return result;
     }
 
+    rotateAroundAxis(axis, angle) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        const cross = this.crossProduct(axis);
+        const dot = this.dotProduct(axis);
+
+        let rotated = this.scale(cos).add(cross.scale(sin)).add(axis.scale(dot * (1 - cos)));
+        rotated.w = this.w; // w remains the same
+
+        return rotated;
+    }
+
     /**
      * Applies a transformation matrix to the vector.
      * 

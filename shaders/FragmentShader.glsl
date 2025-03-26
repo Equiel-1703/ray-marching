@@ -5,6 +5,9 @@ in vec2 v_uv;
 out vec4 o_frag_color;
 
 uniform vec3 u_camera_position;
+uniform vec3 u_camera_target;
+uniform vec3 u_camera_up;
+
 uniform vec2 u_image_resolution;
 
 const float THRESHOLD = 0.01f;
@@ -42,12 +45,12 @@ vec3 ray_direction(float fieldOfView, vec2 size, vec2 fragCoord) {
 
 /**
  * Return a transform matrix that will transform a ray from view space
- * to world coordinates, given the eye point, the camera target, and an up vector.
+ * to world coordinates, given the camera location, the camera target, and an up vector.
  *
  * This assumes that the camera is looking at the positive z direction.
  */
-mat3 view_to_world_matrix(vec3 eye, vec3 center, vec3 up) {
-    vec3 f = normalize(center - eye);
+mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
+    vec3 f = normalize(target);
     vec3 s = normalize(cross(f, up));
     vec3 u = cross(s, f);
     return mat3(s, u, f);
@@ -59,7 +62,7 @@ void main() {
     u_sphere.radius = 0.5f; // Sphere radius
 
     // Create matrix to transform from view space to world space
-    mat3 view_to_world = view_to_world_matrix(u_camera_position, vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f));
+    mat3 view_to_world = view_to_world_matrix(u_camera_position, u_camera_target, u_camera_up);
 
     // Use uv to calculate the pixel coordinate (in view space)
     // The pixel coordinate is in the range [0, u_image_resolution]
@@ -85,7 +88,7 @@ void main() {
             return;
         }
 
-        if (distance <= THRESHOLD) {
+        if(distance <= THRESHOLD) {
             o_frag_color = vec4(0.08f, 0.31f, 0.63f, 1.0f); // Color the sphere surface
             return;
         }
@@ -97,7 +100,7 @@ void main() {
         depth += distance;
 
         // Check if we are too far away
-        if (depth > max_distance) {
+        if(depth > max_distance) {
             o_frag_color = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Green color for max distance reached
             return;
         }
@@ -106,7 +109,7 @@ void main() {
         steps++;
     }
 
-    if (steps >= MAX_STEPS) {
+    if(steps >= MAX_STEPS) {
         o_frag_color = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Black color for max steps reached
         return;
     }

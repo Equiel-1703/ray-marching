@@ -8,70 +8,52 @@ import Vec4 from './Vec4.js';
 export default class Camera {
     #location = Vec4.createZeroPoint();
 
+    // Rotation angles in radians
     #angle_x = 0;
     #angle_y = 0;
-    #camera_rotation_matrix = GraphicsMath.createIdentityMatrix();
+
+    // Front and up vectors
+    #target;
+    #up;
 
     constructor(location = Vec4.createZeroPoint()) {
         this.#location = location;
+
+        // Camera will be looking in the positive Z direction by default
+        this.#target = Vec4.zAxis();
+        this.#up = Vec4.yAxis();
     }
 
     get location() {
         return this.#location;
     }
 
-    move(direction, speed) {
-        const move = this.transformMovement(direction, -this.#angle_y, this.#angle_x);
-
-        // Little adjustment to include the dpads y value
-        move.y += direction.y;
-
-        this.#location = this.#location.add(move.scale(speed));
+    get front_vector() {
+        return this.#target;
     }
 
-    transformMovement(input, yawRad, pitchRad) {
-        // Compute forward vector
-        let forwardX = Math.cos(pitchRad) * Math.sin(yawRad);
-        let forwardY = Math.sin(pitchRad);
-        let forwardZ = Math.cos(pitchRad) * Math.cos(yawRad);
-
-        // Compute right vector
-        let rightX = Math.cos(yawRad);
-        let rightY = 0; // No Y in the right vector
-        let rightZ = -Math.sin(yawRad);
-
-        // Transform movement input
-        let finalX = input.x * rightX + input.z * forwardX;
-        let finalY = input.z * forwardY; // Only affected by forward direction
-        let finalZ = input.x * rightZ + input.z * forwardZ;
-
-        return new Vec4(finalX, finalY, finalZ, 1);
+    get up_vector() {
+        return this.#up;
     }
 
-    rotate(angle, axis) {
-        if (axis === 'x') {
-            this.#angle_x += angle;
-        } else if (axis === 'y') {
-            this.#angle_y += angle;
+    static #last_x_angle = 0; // Just for shit and giggles (until someone giggles and shits)
+    setRotationX(angle) {
+        // check if the angle is the same
+        if (angle == Camera.#last_x_angle) {
+            return;
         }
+        
+        this.#angle_x = angle - Camera.#last_x_angle;
+        this.#target = this.#target.rotateAroundAxis(Vec4.xAxis(), this.#angle_x).normalize();
+        this.#up = this.#up.rotateAroundAxis(Vec4.xAxis(), this.#angle_x).normalize();
 
-        const rotation_x = GraphicsMath.createRotationMatrix(this.#angle_x, 'x');
-        const rotation_y = GraphicsMath.createRotationMatrix(this.#angle_y, 'y');
-
-        // Update the camera rotation matrix
-        this.#camera_rotation_matrix = GraphicsMath.multiplyMatrices(rotation_x, rotation_y);
-    }
-
-    getCameraMatrix() {
-        const camera_translation = GraphicsMath.createTranslationMatrix(-this.#location.x, -this.#location.y, -this.#location.z);
-
-        const camera_matrix = GraphicsMath.multiplyMatrices(this.#camera_rotation_matrix, camera_translation);
-
-        return camera_matrix;
+        Camera.#last_x_angle = angle;
     }
 
     logCameraStats(log) {
         log.log('Camera> Location: ' + this.#location.x + ', ' + this.#location.y + ', ' + this.#location.z);
+        log.log('Camera> Front vector: ' + this.#target.x + ', ' + this.#target.y + ', ' + this.#target.z);
+        log.log('Camera> Up vector: ' + this.#up.x + ', ' + this.#up.y + ', ' + this.#up.z);
         log.log('Camera> Rotation: ' + 'X: ' + this.#angle_x + ', Y: ' + this.#angle_y);
     }
 }
