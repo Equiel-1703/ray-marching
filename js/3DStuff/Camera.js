@@ -35,19 +35,43 @@ export default class Camera {
     get up_vector() {
         return this.#up;
     }
-
-    static #last_x_angle = 0; // Just for shit and giggles (until someone giggles and shits)
+    
+    static #last_x_angle = 0;
     setRotationX(angle) {
         // check if the angle is the same
         if (angle == Camera.#last_x_angle) {
             return;
         }
-        
+
+        const axis = Vec4.xAxis();
+
         this.#angle_x = angle - Camera.#last_x_angle;
-        this.#target = this.#target.rotateAroundAxis(Vec4.xAxis(), this.#angle_x).normalize();
-        this.#up = this.#up.rotateAroundAxis(Vec4.xAxis(), this.#angle_x).normalize();
+        this.#target = this.#target.rotateAroundAxis(axis, this.#angle_x).normalize();
+        this.#up = this.#up.rotateAroundAxis(axis, this.#angle_x).normalize();
 
         Camera.#last_x_angle = angle;
+    }
+
+    static #last_y_angle = 0;
+    setRotationY(angle) {
+        // check if the angle is the same
+        if (angle == Camera.#last_y_angle) {
+            return;
+        }
+
+        const axis = Vec4.yAxis();
+
+        this.#angle_y = angle - Camera.#last_y_angle;
+        this.#target = this.#target.rotateAroundAxis(axis, this.#angle_y).normalize();
+        this.#up = this.#up.rotateAroundAxis(axis, this.#angle_y).normalize();
+
+        Camera.#last_y_angle = angle;
+    }
+
+    setPosition(x, y, z) {
+        this.#location.x = x;
+        this.#location.y = y;
+        this.#location.z = z;
     }
 
     logCameraStats(log) {

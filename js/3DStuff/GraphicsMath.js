@@ -13,7 +13,11 @@ export default class GraphicsMath {
      * @returns {number} The angle in radians.
      */
     static degToRad(degrees) {
-        return degrees * (Math.PI / 180.0);
+        let rads = degrees * (Math.PI / 180.0);
+
+        // Round the angle to 4 decimal places
+        rads = Math.round(rads * 10000) / 10000;
+        return rads;
     }
 
     /**
@@ -23,7 +27,11 @@ export default class GraphicsMath {
      * @returns {number} The angle in degrees.
      */
     static radToDeg(rad) {
-        return rad * (180.0 / Math.PI);
+        let degs = rad * (180.0 / Math.PI);
+
+        // Round the angle to 4 decimal places
+        degs = Math.round(degs * 10000) / 10000;
+        return degs;
     }
 
     /**

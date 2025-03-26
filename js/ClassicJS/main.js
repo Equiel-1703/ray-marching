@@ -133,10 +133,21 @@ async function renderCallBack(s_time) {
     const u_camera_target = gl.getUniformLocation(program, 'u_camera_target');
     const u_camera_up = gl.getUniformLocation(program, 'u_camera_up');
 
-    // Read cam rotation x input
+    // Read cam rotation
     const x_angle = document.getElementById('cam_rotation_x').value;
+    const y_angle = document.getElementById('cam_rotation_y').value;
 
-    camera.setRotationX(x_angle * Math.PI / 180);
+    // Read cam position
+    const x_pos = document.getElementById('cam_position_x').value;
+    const y_pos = document.getElementById('cam_position_y').value;
+    const z_pos = document.getElementById('cam_position_z').value;
+
+    // Setting camera rotation
+    camera.setRotationX(GraphicsMath.degToRad(x_angle));
+    camera.setRotationY(GraphicsMath.degToRad(y_angle));
+
+    // Setting camera position
+    camera.setPosition(x_pos, y_pos, z_pos);
 
     // Updating camera values
     gl.uniform3f(u_camera_position, camera.location.x, camera.location.y, camera.location.z);

@@ -14,10 +14,22 @@ uniform vec2 u_image_resolution;
 struct Sphere {
     vec3 position;
     float radius;
+    vec4 color;
+};
+
+struct Quadrangle {
+    vec3 position;
+    vec3 size;
+    vec4 color;
 };
 
 float s_distance_to_sphere(vec3 point, Sphere sphere) {
     return length(sphere.position - point) - sphere.radius;
+}
+
+float s_distance_to_cube(vec3 point, Quadrangle cube) {
+    vec3 d = abs(point - cube.position) - cube.size;
+    return length(max(d, 0.0f)) + min(max(d.x, max(d.y, d.z)), 0.0f);
 }
 
 /**
@@ -66,6 +78,38 @@ struct RayHit {
     vec4 color;
 };
 
+// ------------------------- SCENE DEFINITION -------------------------
+
+// This function returns the distance and color of the nearest surface in the scene
+// It is called from the ray_march function
+RayHit scene(vec3 ray_origin, vec3 ray_direction) {
+    Sphere s1;
+    Quadrangle q1;
+
+    // Define a sphere
+    s1.position = vec3(0.0f, 1.0f, 5.0f);
+    s1.radius = 1.0f;
+    s1.color = vec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+
+    // Define a cube
+    q1.position = vec3(0.0f, -1.0f, 5.0f);
+    q1.size = vec3(1.0f, 1.0f, 1.0f);
+    q1.color = vec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
+
+    // Calculate the distance to the sphere
+    float d1 = s_distance_to_sphere(ray_origin, s1);
+
+    // Calculate the distance to the cube
+    float d2 = s_distance_to_cube(ray_origin, q1);
+
+    float dist = min(d1, d2);
+    vec4 color = max(s1.color, q1.color);
+
+    return RayHit(dist, color);
+}
+
+// ------------------------- RAY MARCHING -------------------------
+
 /**
  * Finds the nearest surface along a ray within a specified maximum distance.
  *
@@ -76,32 +120,26 @@ struct RayHit {
  * Returns a RayHit structure containing the distance to the nearest surface and its color.
  * If nothing is found, the distance will be set to max_distance and the color will be black.
  */
-RayHit find_nearest_surface(vec3 ray_origin, vec3 ray_direction, float max_distance)
-{
-    Sphere u_sphere;
-    u_sphere.position = vec3(0.0f, 0.0f, 2.0f); // Sphere position in world space
-    u_sphere.radius = 0.5f; // Sphere radius
-
+RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
     float distance = 0.0f;
     vec4 color = vec4(0.0f);
 
     // March along the ray
-    for (int i = 0; i < MAX_STEPS; i++) {
+    for(int i = 0; i < MAX_STEPS; i++) {
         // Calculate the current point along the ray
         vec3 point = ray_origin + ray_direction * distance;
 
         // Check distance to the sphere
-        float d = s_distance_to_sphere(point, u_sphere);
-        if (d <= PROXIMITY_THRESHOLD) {
-            color = vec4(0.1f, 0.45f, 0.67f, 1.0f);
-            break;
+        RayHit hit = scene(point, ray_direction);
+        if(hit.distance <= PROXIMITY_THRESHOLD) {
+            return RayHit(distance + hit.distance, hit.color);
         }
 
         // Move to the next point along the ray
-        distance += d;
+        distance += hit.distance;
 
         // Check if we are too far away
-        if (distance > max_distance) {
+        if(distance > max_distance) {
             break;
         }
     }
@@ -126,11 +164,11 @@ void main() {
     const float MAX_DISTANCE = 100.0f;
 
     // Let's get the closest surface from the camera for the current pixel
-    RayHit hit = find_nearest_surface(u_camera_position, ray_direction, MAX_DISTANCE);
+    RayHit hit = ray_march(u_camera_position, ray_direction, MAX_DISTANCE);
 
-    if (hit.distance < MAX_DISTANCE) {
+    if(hit.distance < MAX_DISTANCE) {
         // If we hit something, set the fragment color to the hit color darkened by the distance
-        o_frag_color = vec4(hit.color.rgb * (1.0f - (hit.distance * 30.0f / MAX_DISTANCE)), 1.0f);
+        o_frag_color = vec4(hit.color.rgb * (1.0f - (hit.distance * 5.0f / MAX_DISTANCE)), 1.0f);
     } else {
         // If we didn't hit anything, just set to the default non-hit color
         o_frag_color = vec4(0.07f, 0.07f, 0.07f, 1.0f);

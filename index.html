@@ -30,7 +30,12 @@
             </canvas>
             <div>
                 <p id="fps_counter">FPS: 0</p>
-                <input type="number" id="cam_rotation_x" value="0" min="0" max="360" step="1" />
+                <input type="number" id="cam_rotation_x" min="-360" max="360" step="1" value="0" />
+                <input type="number" id="cam_rotation_y" min="-360" max="360" step="1" value="0" />
+
+                <input type="number" id="cam_position_x" min="-100" max="100" step="1" value="0" />
+                <input type="number" id="cam_position_y" min="-100" max="100" step="1" value="0" />
+                <input type="number" id="cam_position_z" min="-100" max="100" step="1" value="0" />
             </div>
         </div>
 
