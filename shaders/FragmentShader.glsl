@@ -10,6 +10,44 @@ uniform vec3 u_camera_up;
 
 uniform vec2 u_image_resolution;
 
+// Utility stuff
+float hash(vec3 p) {
+    return fract(sin(dot(p, vec3(127.1f, 311.7f, 74.7f))) * 43758.5453f);
+}
+
+float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+
+    float a = hash(i);
+    float b = hash(i + vec3(1, 0, 0));
+    float c = hash(i + vec3(0, 1, 0));
+    float d = hash(i + vec3(1, 1, 0));
+
+    float e = hash(i + vec3(0, 0, 1));
+    float f1 = hash(i + vec3(1, 0, 1));
+    float g = hash(i + vec3(0, 1, 1));
+    float h = hash(i + vec3(1, 1, 1));
+
+    vec3 u = f * f * (3.0f - 2.0f * f);
+
+    return mix(mix(mix(a, b, u.x), mix(c, d, u.x), u.y), mix(mix(e, f1, u.x), mix(g, h, u.x), u.y), u.z);
+}
+
+float turbulence(vec3 p) {
+    float sum = 0.0;
+    float scale = 1.0;
+    float weight = 1.0;
+
+    for (int i = 0; i < 4; i++) {  // 4 octaves of noise
+        sum += abs(noise(p * scale)) * weight;
+        scale *= 2.0;
+        weight *= 0.5;
+    }
+
+    return sum;
+}
+
 // Defining objects structs
 struct Sphere {
     vec3 position;
@@ -23,11 +61,11 @@ struct Quadrangle {
     vec4 color;
 };
 
-float s_distance_to_sphere(vec3 point, Sphere sphere) {
+float SDF_Sphere(vec3 point, Sphere sphere) {
     return length(sphere.position - point) - sphere.radius;
 }
 
-float s_distance_to_cube(vec3 point, Quadrangle cube) {
+float SDF_Quadrangle(vec3 point, Quadrangle cube) {
     vec3 d = abs(point - cube.position) - cube.size;
     return length(max(d, 0.0f)) + min(max(d.x, max(d.y, d.z)), 0.0f);
 }
@@ -59,7 +97,7 @@ vec3 ray_direction(float fieldOfView, vec2 size, vec2 fragCoord) {
  * This assumes that the camera is looking at the positive z direction.
  */
 mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
-    vec3 f = normalize(target);
+    vec3 f = normalize(target); // Forward vector
     vec3 s = normalize(cross(f, up));
     vec3 u = cross(s, f);
     return mat3(s, u, f);
@@ -82,28 +120,29 @@ struct RayHit {
 
 // This function returns the distance and color of the nearest surface in the scene
 // It is called from the ray_march function
-RayHit scene(vec3 ray_origin, vec3 ray_direction) {
-    Sphere s1;
+RayHit scene(vec3 point) {
+    Sphere moon;
     Quadrangle q1;
 
     // Define a sphere
-    s1.position = vec3(0.0f, 1.0f, 5.0f);
-    s1.radius = 1.0f;
-    s1.color = vec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+    moon.position = vec3(0.0f, 1.0f, 5.0f);
+    moon.radius = 1.0f;
+    moon.color = vec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+    float moon_dist_amount = 0.2f;
 
     // Define a cube
     q1.position = vec3(0.0f, -1.0f, 5.0f);
     q1.size = vec3(1.0f, 1.0f, 1.0f);
     q1.color = vec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
 
-    // Calculate the distance to the sphere
-    float d1 = s_distance_to_sphere(ray_origin, s1);
+    // Calculate the distance to the moon
+    float d1 = SDF_Sphere(point, moon) + moon_dist_amount * turbulence(point * 1.0f);
 
     // Calculate the distance to the cube
-    float d2 = s_distance_to_cube(ray_origin, q1);
+    float d2 = SDF_Quadrangle(point, q1);
 
     float dist = min(d1, d2);
-    vec4 color = max(s1.color, q1.color);
+    vec4 color = max(moon.color, q1.color);
 
     return RayHit(dist, color);
 }
@@ -130,7 +169,7 @@ RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
         vec3 point = ray_origin + ray_direction * distance;
 
         // Check distance to the sphere
-        RayHit hit = scene(point, ray_direction);
+        RayHit hit = scene(point);
         if(hit.distance <= PROXIMITY_THRESHOLD) {
             return RayHit(distance + hit.distance, hit.color);
         }
