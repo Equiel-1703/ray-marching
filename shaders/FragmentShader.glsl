@@ -10,9 +10,6 @@ uniform vec3 u_camera_up;
 
 uniform vec2 u_image_resolution;
 
-const float THRESHOLD = 0.01f;
-const int MAX_STEPS = 100;
-
 // Defining objects structs
 struct Sphere {
     vec3 position;
@@ -56,61 +53,86 @@ mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
     return mat3(s, u, f);
 }
 
-void main() {
+// RAY MARCH CONSTANTS
+
+// The proximity threshold is the distance at which we consider the ray to be close to the surface
+const float PROXIMITY_THRESHOLD = 0.01f;
+// The MAX_STEPS constant is the maximum number of steps we will take before giving up on finding a surface
+const int MAX_STEPS = 100;
+
+// Return structure
+struct RayHit {
+    float distance;
+    vec4 color;
+};
+
+/**
+ * Finds the nearest surface along a ray within a specified maximum distance.
+ *
+ * ray_origin: The starting point of the ray in world space.
+ * ray_direction: The direction of the ray in world space.
+ * max_distance: The maximum distance to search for a surface.
+ *
+ * Returns a RayHit structure containing the distance to the nearest surface and its color.
+ * If nothing is found, the distance will be set to max_distance and the color will be black.
+ */
+RayHit find_nearest_surface(vec3 ray_origin, vec3 ray_direction, float max_distance)
+{
     Sphere u_sphere;
-    u_sphere.position = vec3(0.0f, 0.0f, 10.0f); // Sphere position in world space
+    u_sphere.position = vec3(0.0f, 0.0f, 2.0f); // Sphere position in world space
     u_sphere.radius = 0.5f; // Sphere radius
 
-    // Create matrix to transform from view space to world space
-    mat3 view_to_world = view_to_world_matrix(u_camera_position, u_camera_target, u_camera_up);
+    float distance = 0.0f;
+    vec4 color = vec4(0.0f);
 
+    // March along the ray
+    for (int i = 0; i < MAX_STEPS; i++) {
+        // Calculate the current point along the ray
+        vec3 point = ray_origin + ray_direction * distance;
+
+        // Check distance to the sphere
+        float d = s_distance_to_sphere(point, u_sphere);
+        if (d <= PROXIMITY_THRESHOLD) {
+            color = vec4(0.1f, 0.45f, 0.67f, 1.0f);
+            break;
+        }
+
+        // Move to the next point along the ray
+        distance += d;
+
+        // Check if we are too far away
+        if (distance > max_distance) {
+            break;
+        }
+    }
+
+    return RayHit(distance, color);
+}
+
+void main() {
     // Use uv to calculate the pixel coordinate (in view space)
     // The pixel coordinate is in the range [0, u_image_resolution]
     vec2 pixel_coord = v_uv * u_image_resolution;
+
+    // Create matrix to transform from view space to world space
+    mat3 view_to_world = view_to_world_matrix(u_camera_position, u_camera_target, u_camera_up);
 
     // Calculate the ray direction in view space
     vec3 ray_direction = ray_direction(60.0f, u_image_resolution, pixel_coord);
     // Transform the ray direction to world space
     ray_direction = view_to_world * ray_direction; // ray_direction is now in world space
 
-    vec3 reference_point = u_camera_position; // Start at the camera position
-    float depth = 0.0f;
-    float max_distance = 100.0f;
-    int steps = 0;
+    // Let's set the maximum distance to search for a surface
+    const float MAX_DISTANCE = 100.0f;
 
-    while(steps < MAX_STEPS) {
-        // Calculate the distance to the sphere
-        float distance = s_distance_to_sphere(reference_point, u_sphere);
+    // Let's get the closest surface from the camera for the current pixel
+    RayHit hit = find_nearest_surface(u_camera_position, ray_direction, MAX_DISTANCE);
 
-        // Check if we are inside the sphere
-        if(distance < 0.0f) {
-            o_frag_color = vec4(1.0f, 0.0f, 0.0f, 1.0f); // Red color for inside the sphere
-            return;
-        }
-
-        if(distance <= THRESHOLD) {
-            o_frag_color = vec4(0.08f, 0.31f, 0.63f, 1.0f); // Color the sphere surface
-            return;
-        }
-
-        // Move the reference point along the ray
-        reference_point += ray_direction * distance;
-
-        // Update the depth
-        depth += distance;
-
-        // Check if we are too far away
-        if(depth > max_distance) {
-            o_frag_color = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Green color for max distance reached
-            return;
-        }
-
-        // Increment the step count
-        steps++;
-    }
-
-    if(steps >= MAX_STEPS) {
-        o_frag_color = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Black color for max steps reached
-        return;
+    if (hit.distance < MAX_DISTANCE) {
+        // If we hit something, set the fragment color to the hit color darkened by the distance
+        o_frag_color = vec4(hit.color.rgb * (1.0f - (hit.distance * 30.0f / MAX_DISTANCE)), 1.0f);
+    } else {
+        // If we didn't hit anything, just set to the default non-hit color
+        o_frag_color = vec4(0.07f, 0.07f, 0.07f, 1.0f);
     }
 }

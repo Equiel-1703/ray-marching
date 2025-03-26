@@ -87,7 +87,7 @@ async function main() {
     // TODO: Check if we really need a projection matrix
 
     // Creating camera
-    camera = new Camera(new Vec4(0, 0, -10, 1)); // By default, the camera is looking in the positive Z direction
+    camera = new Camera(new Vec4(0, 0, 0, 1)); // By default, the camera is looking in the positive Z direction
 
     // Here I set that if the user presses the space bar, the camera stats will be logged
     document.addEventListener('keydown', (e) => {
