@@ -116,8 +116,8 @@ float sdf_flat_disk(vec3 p, vec3 center, float innerRadius, float outerRadius, f
 
 // The proximity threshold is the distance at which we consider the ray to be close to the surface
 const float PROXIMITY_THRESHOLD = 0.001f;
-// The MAX_STEPS constant is the maximum number of steps we will take before giving up on finding a surface
-const int MAX_STEPS = 100;
+// // The MAX_STEPS constant is the maximum number of steps we will take before giving up on finding a surface
+const int MAX_STEPS = 256;  // Increased from 100 for better quality
 // The MAX_DISTANCE constant is the maximum distance we will search for a surface/light
 const float MAX_DISTANCE = 300.0f;
 
@@ -142,6 +142,8 @@ const vec3 RING_GLOW_COLOR = vec3(0.1f, 0.5f, 1.0f);
 const vec3 MOON_POSITION = vec3(50.0f, 50.0f, 30.0f);
 const float MOON_RADIUS = 10.0f;
 const vec4 MOON_COLOR = vec4(0.8f, 0.8f, 0.8f, 1.0f); // Light gray color
+const float MOON_NOISE_SCALE = 0.3f; // Scale for the noise function
+const float MOON_NOISE_STRENGTH = 0.2f; // Strength of the noise effect
 
 // This function defines the moon and returns its distance and color
 RayHit moon(vec3 point) {
@@ -149,14 +151,15 @@ RayHit moon(vec3 point) {
     moon.position = MOON_POSITION;
     moon.radius = MOON_RADIUS;
     moon.color = MOON_COLOR;
-    const float DISTORTION_FACTOR = 0.4f;
 
     RayHit ret;
-    ret.distance = sdf_sphere(point, moon) + DISTORTION_FACTOR * fbm(point);
+    ret.distance = sdf_sphere(point, moon) + MOON_NOISE_STRENGTH * fbm(point * MOON_NOISE_SCALE);
+
     ret.color = moon.color;
 
     return ret;
 }
+
 
 RayHit rings(vec3 p) {
     RayHit ret;
@@ -340,27 +343,34 @@ const float SUN_ANGULAR_RADIUS = 0.005f; // Controls soft shadows (smaller = sha
 vec3 light_1 = vec3(0.0f, 5.0f, -50.0f);
 const float LIGHT_INTENSITY = 1.0f; // Light intensity
 
-// This function approximates the normal at a point in space by sampling the distance function
-// at small variations around the point
-// This is a common technique in ray marching to get the normal vector, it is called gradient estimation
+// This function approximates the normal at a point in space by using a tetrahedron
+// This is a more stable method than using axis-aligned differences, specially for noisy surfaces
 vec3 get_normal(vec3 p) {
-    const float DIST = 0.001f; // Small distance to sample the distance function
-    vec3 n;
-    n.x = scene(p + vec3(DIST, 0.0f, 0.0f)).distance - scene(p - vec3(DIST, 0.0f, 0.0f)).distance;
-    n.y = scene(p + vec3(0.0f, DIST, 0.0f)).distance - scene(p - vec3(0.0f, DIST, 0.0f)).distance;
-    n.z = scene(p + vec3(0.0f, 0.0f, DIST)).distance - scene(p - vec3(0.0f, 0.0f, DIST)).distance;
-    return normalize(n);
+    // Larger epsilon for more stable results with noise
+    const float eps = 0.02;
+    
+    // Tetrahedron normal calculation
+    vec3 e = vec3(eps, -eps, 0);
+    float d1 = scene(p + e.xyy).distance;
+    float d2 = scene(p + e.yxy).distance;
+    float d3 = scene(p + e.yyx).distance;
+    float d4 = scene(p + e.xxx).distance;
+    
+    vec3 n = normalize(e.xyy*d1 + e.yxy*d2 + e.yyx*d3 + e.xxx*d4);
+    return n;
+}
+
+// Smooth the normal using a mix of the detailed normal and the base normal for the moon
+vec3 get_smoothed_normal(vec3 p, float smoothing) {
+    vec3 base_normal = normalize(p - MOON_POSITION); // Sphere normal of the moon
+    vec3 detailed_normal = get_normal(p);
+    return normalize(mix(detailed_normal, base_normal, smoothing));
 }
 
 float calculate_light_attenuation(float distance_to_light) {
     // Inverse square law with minimum distance to prevent singularity
     float d = max(distance_to_light, 0.1f);
     return 1.0f / (1.0f + d * d);  // The 1.0+ makes it finite at d=0
-}
-
-// Simple tone mapping to prevent over-brightening
-float tone_map(float light) {
-    return light / (1.0f + light);
 }
 
 // Directional light for the sun
@@ -437,18 +447,18 @@ float compute_shadow(vec3 ro, vec3 rd) {
 // Compute the light intesity at a point in space, considering ambient, diffuse and specular components
 // This function combines the diffuse and specular lighting with shadows
 // It returns a value between 0.0 and 1.0
-float compute_lighting_and_shadows(vec3 p, vec3 view_dir) {
+float compute_lighting_and_shadows(vec3 p, vec3 view_dir, vec3 normal) {
     float ambient = 0.02f; // Very low ambient (space is dark!)
 
     // Point light (for other light sources)
     vec3 light_dir = normalize(light_1 - p);
-    float point_diffuse = max(dot(get_normal(p), light_dir), 0.0f);
+    float point_diffuse = max(dot(normal, light_dir), 0.0f);
     float point_atten = calculate_light_attenuation(length(light_1 - p));
     float point_light = point_diffuse * point_atten * LIGHT_INTENSITY;
     float point_shadow = compute_shadow(p, light_dir);
 
     // Sun light (main planetary light)
-    float sun_light = compute_sun_light(p, get_normal(p));
+    float sun_light = compute_sun_light(p, normal);
     float sun_shadow = compute_sun_shadow(p, sun_dir);
 
     // Specular (only for point light to avoid unrealistic sun specular)
@@ -460,7 +470,7 @@ float compute_lighting_and_shadows(vec3 p, vec3 view_dir) {
         sun_light * sun_shadow +
         specular;
 
-    return tone_map(total);
+    return total;
 }
 
 // ---------------------------------------- UTILITIES ----------------------------------------
@@ -519,21 +529,22 @@ void main() {
             // Ring specific shading
             vec3 ring_normal = vec3(0, sign(point.y), 0);
             surface_color = get_ring_color(point, ring_normal, view_dir);
-            alpha = 0.8f; // Slightly transparent rings
+            alpha = 0.7f; // Slightly transparent rings
         } else if(saturn(point).distance <= PROXIMITY_THRESHOLD) {
             // Planet shading
             vec3 normal = get_normal(point);
             surface_color = get_saturn_color(point, normal, view_dir) + hit.color.rgb;
 
             // Apply lighting to planets (not rings)
-            float light_intensity = compute_lighting_and_shadows(point, view_dir);
+            float light_intensity = compute_lighting_and_shadows(point, view_dir, normal);
             surface_color *= light_intensity;
-        } else if(moon(point).distance <= PROXIMITY_THRESHOLD + 0.1f) {
+        } else if(moon(point).distance <= PROXIMITY_THRESHOLD + 0.2f) {
             // Moon shading (use the color alredy set in moon() function)
             surface_color = hit.color.rgb;
 
             // Apply lighting to moon
-            float light_intensity = compute_lighting_and_shadows(point, view_dir);
+            vec3 normal = get_smoothed_normal(point, 0.3f);
+            float light_intensity = compute_lighting_and_shadows(point, view_dir, normal);
             surface_color *= light_intensity;
         }
 
