@@ -136,6 +136,7 @@ const float RING_INNER_RADIUS = 50.0f;
 const float RING_OUTER_RADIUS = 70.0f;
 const float RING_THICKNESS = 0.04f;
 const float RING_GLOW_POWER = 2.0f;
+const float RING_GLOW_RADIUS = 6.0f;
 const vec3 RING_GLOW_COLOR = vec3(0.1f, 0.5f, 1.0f);
 
 const vec3 MOON_POSITION = vec3(50.0f, 50.0f, 30.0f);
@@ -189,13 +190,21 @@ vec3 get_ring_color(vec3 p, vec3 normal, vec3 viewDir) {
 
 // Get the glow intensity at point p
 float get_glow_intensity(vec3 p) {
-    float dist = length(p.xz - SATURN_POSITION.xz);
-    float distance_to_rings_edge = abs(dist - RING_OUTER_RADIUS);
+    float distance_to_rings_edge = sdf_flat_disk(p, SATURN_POSITION, RING_INNER_RADIUS, RING_OUTER_RADIUS, RING_THICKNESS);
 
-    float glow_intensity = 1.0f - RING_GLOW_POWER * smoothstep(0.0f, 1.0f, distance_to_rings_edge / (RING_OUTER_RADIUS - RING_INNER_RADIUS));
-    glow_intensity = max(glow_intensity, 0.0f); // Ensure non-negative
+    if (distance_to_rings_edge < RING_GLOW_RADIUS) {
+        // Normalize the distance to the ring edge (0 to 1)
+        float glow_intensity = distance_to_rings_edge / RING_GLOW_RADIUS;
 
-    return glow_intensity;
+        // Now we will invert it, so the further away from the edge, the dimmer the glow and apply a power function
+        glow_intensity = 1.0f - pow(glow_intensity, RING_GLOW_POWER);
+
+
+        glow_intensity = max(glow_intensity, 0.0f); // Ensure non-negative
+        return glow_intensity;
+    }
+
+    return 0.0f; // No glow outside the ring radius
 }
 
 // This function defines the planet Saturn and returns its distance
@@ -206,7 +215,7 @@ RayHit saturn(vec3 point) {
 
     RayHit ret;
     ret.distance = sdf_sphere(point, saturn);
-    ret.color = vec4(vec3(1.0f), 1.0f); // Default color, we will compute it in main
+    ret.color = vec4(0.0f); // Default color, we will compute it in main
 
     return ret;
 }
@@ -255,14 +264,14 @@ vec3 get_saturn_color(vec3 pos, vec3 normal, vec3 view_dir) {
 // It is called from the ray_march function
 // Updated scene function with rings
 RayHit scene(vec3 point) {
-    const int NO_OBJECTS = 2; // Number of objects in the scene
+    const int NO_OBJECTS = 3; // Number of objects in the scene
 
     RayHit moon = moon(point);
     RayHit saturn = saturn(point);
     RayHit rings = rings(point);
 
     // Find nearest solid object
-    RayHit hits[NO_OBJECTS] = RayHit[NO_OBJECTS](moon, saturn);
+    RayHit hits[NO_OBJECTS] = RayHit[NO_OBJECTS](moon, saturn, rings);
     RayHit nearest = hits[0];
     
     for(int i = 1; i < NO_OBJECTS; i++) {
@@ -270,9 +279,6 @@ RayHit scene(vec3 point) {
             nearest = hits[i];
         }
     }
-
-    // Add glow
-    // nearest.color.rgb += get_glow_intensity(point) * RING_GLOW_COLOR;
 
     return nearest;
 }
@@ -291,6 +297,7 @@ RayHit scene(vec3 point) {
  */
 RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
     float depth = 0.0f;
+    float glow = 0.0f;
 
     RayHit final_hit;
     final_hit.distance = max_distance;
@@ -298,12 +305,17 @@ RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
 
     for(int i = 0; i < MAX_STEPS; i++) {
         vec3 point = ray_origin + ray_direction * depth;
+
+        // Accumulate glow intensity at the current point
+        glow += get_glow_intensity(point);
+
+        // Get hit information from the scene
         RayHit hit = scene(point);
 
         if(hit.distance <= PROXIMITY_THRESHOLD) {
             final_hit.distance = depth + hit.distance;
-            final_hit.color = hit.color;
-            break;
+            final_hit.color = hit.color + vec4(glow * RING_GLOW_COLOR, 0.0f); // Add glow to the color
+            return final_hit;
         }
 
         depth += hit.distance;
@@ -313,12 +325,15 @@ RayHit ray_march(vec3 ray_origin, vec3 ray_direction, float max_distance) {
         }
     }
 
+    final_hit.color.rgb = glow * RING_GLOW_COLOR;
+    final_hit.color.a = 1.0f; // Fully opaque if no hit
+
     return final_hit;
 }
 // ------------------------- LIGHTING -------------------------
 
 // Light positions
-vec3 sun_dir = normalize(vec3(0.8f, 2.0f, -10.0f)); // Example direction
+vec3 sun_dir = normalize(vec3(3.8f, 6.0f, -3.0f)); // Example direction
 const float SUN_INTENSITY = 200.0f; // Bright enough to light planets
 const float SUN_ANGULAR_RADIUS = 0.005f; // Controls soft shadows (smaller = sharper)
 
@@ -496,21 +511,19 @@ void main() {
         vec3 point = u_camera_position + ray_direction * hit.distance;
         vec3 view_dir = normalize(u_camera_position - point);
 
-        vec3 surface_color = vec3(0.1f, 0.58f, 0.1f);
+        vec3 surface_color = vec3(0.0f);
         float alpha = 1.0f;
 
-        // // Determine what we hit
-        // if(rings(point).distance <= PROXIMITY_THRESHOLD) {
-        //     // Ring specific shading
-        //     vec3 ring_normal = vec3(0, sign(point.y), 0);
-        //     surface_color = get_ring_color(point, ring_normal, view_dir);
-        //     alpha = 0.8f; // Slightly transparent rings
-        // } else 
-        
-        if(saturn(point).distance <= PROXIMITY_THRESHOLD) {
+        // Determine what we hit
+        if(rings(point).distance <= PROXIMITY_THRESHOLD) {
+            // Ring specific shading
+            vec3 ring_normal = vec3(0, sign(point.y), 0);
+            surface_color = get_ring_color(point, ring_normal, view_dir);
+            alpha = 0.8f; // Slightly transparent rings
+        } else if(saturn(point).distance <= PROXIMITY_THRESHOLD) {
             // Planet shading
             vec3 normal = get_normal(point);
-            surface_color = get_saturn_color(point, normal, view_dir);
+            surface_color = get_saturn_color(point, normal, view_dir) + hit.color.rgb;
 
             // Apply lighting to planets (not rings)
             float light_intensity = compute_lighting_and_shadows(point, view_dir);
@@ -524,7 +537,6 @@ void main() {
             surface_color *= light_intensity;
         }
 
-        // Apply glow as additive blending
         o_frag_color = vec4(surface_color, alpha);
     } else {
         // Apply default color

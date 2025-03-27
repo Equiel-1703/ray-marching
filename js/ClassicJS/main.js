@@ -101,6 +101,8 @@ async function main() {
 }
 
 // ---------------------------------- RENDER SETUP ----------------------------------
+let camera_animation_path = [];
+
 function setupRender() {
     // I will create a square to fill the canvas
     // This will trigger the fragment shader for each pixel
@@ -124,33 +126,79 @@ function setupRender() {
     // Set image resolution
     const u_image_resolution = gl.getUniformLocation(program, 'u_image_resolution');
     gl.uniform2f(u_image_resolution, gl.canvas.width, gl.canvas.height);
+
+    // Set camera path
+    camera_animation_path = [
+        { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
+        { position: new Vec4(0, 50, -150, 1), target: new Vec4(0, -0.3, 1, 1) },
+        { position: new Vec4(20, 50, -120, 1), target: new Vec4(0, -0.3, 1, 1) },
+        { position: new Vec4(30, 50, -120, 1), target: new Vec4(0, -0.2, 1, 1) },
+
+        { position: new Vec4(40, 50, -100, 1), target: new Vec4(0, -0.2, 1, 1) },
+        { position: new Vec4(50, 50, -80, 1), target: new Vec4(0, -0.1, 1, 1) },
+        { position: new Vec4(60, 50, -60, 1), target: new Vec4(0, -0.1, 1, 1) },
+        { position: new Vec4(70, 50, -40, 1), target: new Vec4(0, -0.05, 1, 1) },
+
+        { position: new Vec4(50, 50, -20, 1), target: new Vec4(0, -0.05, 1, 1) },
+        { position: new Vec4(40, 50, -30, 1), target: new Vec4(0, -0.01, 1, 1) },
+        { position: new Vec4(20, 50, -50, 1), target: new Vec4(0, -0.01, 0.5, 1) },
+        { position: new Vec4(10, 50, -70, 1), target: new Vec4(0.5, -0.01, 1, 1) },
+
+        { position: new Vec4(0, 50, -90, 1), target: new Vec4(0, -0.2, 1, 1) },
+        { position: new Vec4(0, 50, -130, 1), target: new Vec4(0, -0.2, 1, 1) },
+        { position: new Vec4(0, 50, -160, 1), target: new Vec4(0, -0.2, 1, 1) },
+        { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
+
+        { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
+        { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
+        { position: new Vec4(0, 50, -150, 1), target: new Vec4(0, -0.3, 1, 1) },
+        { position: new Vec4(20, 50, -120, 1), target: new Vec4(0, -0.3, 1, 1) },
+        { position: new Vec4(30, 50, -120, 1), target: new Vec4(0, -0.2, 1, 1) }
+
+    
+
+    ]
+
+    camera.setAnimationPath(camera_animation_path);
 }
 
 // ---------------------------------- RENDER CALLBACK ----------------------------------
+
+let last_time = null;
+let animation_progress = 0.0;
+let animation_speed = 1.0; // Speed of the animation
+let progress_limit = 1.0; // Limit of the animation progress
+
 async function renderCallBack(s_time) {
+    if (last_time === null) {
+        last_time = s_time;
+        progress_limit = camera.number_of_paths - 1; // Set the limit to the number of paths
+    }
+
+    const delta_time = (s_time - last_time) / 1000; // Convert to seconds
+    last_time = s_time;
+
+    // Update animation progress if animating
+    animation_progress += delta_time * animation_speed;
+    if (animation_progress >= progress_limit) {
+        animation_progress = 0.0;
+    }
+
     const u_camera_position = gl.getUniformLocation(program, 'u_camera_position');
     const u_camera_target = gl.getUniformLocation(program, 'u_camera_target');
     const u_camera_up = gl.getUniformLocation(program, 'u_camera_up');
 
-    // Read cam rotation
-    const x_angle = document.getElementById('cam_rotation_x').value;
-    const y_angle = document.getElementById('cam_rotation_y').value;
-
-    // Read cam position
-    const x_pos = document.getElementById('cam_position_x').value;
-    const y_pos = document.getElementById('cam_position_y').value;
-    const z_pos = document.getElementById('cam_position_z').value;
-
-    // Setting camera rotation
-    camera.setRotationX(GraphicsMath.degToRad(x_angle));
-    camera.setRotationY(GraphicsMath.degToRad(y_angle));
+    // Get camera position and target
+    const camera_position = camera.getCameraAnimatedPosition(animation_progress);
+    const camera_target = camera.getCameraAnimatedTarget(animation_progress);
 
     // Setting camera position
-    camera.setPosition(-x_pos, y_pos, z_pos);
+    camera.setPosition(camera_position.x, camera_position.y, camera_position.z);
+    camera.setTarget(camera_target.x, camera_target.y, camera_target.z);
 
     // Updating camera values
     gl.uniform3f(u_camera_position, camera.location.x, camera.location.y, camera.location.z);
-    gl.uniform3f(u_camera_target, camera.front_vector.x, camera.front_vector.y, camera.front_vector.z);
+    gl.uniform3f(u_camera_target, camera.target.x, camera.target.y, camera.target.z);
     gl.uniform3f(u_camera_up, camera.up_vector.x, camera.up_vector.y, camera.up_vector.z);
 
     wgl_utils.clearCanvas(CLEAR_COLOR, gl);
