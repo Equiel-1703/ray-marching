@@ -131,32 +131,27 @@ function setupRender() {
     camera_animation_path = [
         { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
         { position: new Vec4(0, 50, -150, 1), target: new Vec4(0, -0.3, 1, 1) },
-        { position: new Vec4(20, 50, -120, 1), target: new Vec4(0, -0.3, 1, 1) },
-        { position: new Vec4(30, 50, -120, 1), target: new Vec4(0, -0.2, 1, 1) },
+        { position: new Vec4(20, 50, -120, 1), target: new Vec4(0, -0.2, 1, 1) },
+        { position: new Vec4(30, 50, -120, 1), target: new Vec4(0, -0.1, 1, 1) },
 
-        { position: new Vec4(40, 50, -100, 1), target: new Vec4(0, -0.2, 1, 1) },
-        { position: new Vec4(50, 50, -80, 1), target: new Vec4(0, -0.1, 1, 1) },
-        { position: new Vec4(60, 50, -60, 1), target: new Vec4(0, -0.1, 1, 1) },
-        { position: new Vec4(70, 50, -40, 1), target: new Vec4(0, -0.05, 1, 1) },
+        { position: new Vec4(40, 50, -100, 1), target: new Vec4(0, 0, 1, 1) },
+        { position: new Vec4(50, 50, -80, 1), target: new Vec4(0, 0, 1, 1) },
+        { position: new Vec4(60, 50, -60, 1), target: new Vec4(0, 0, 1, 1) },
+        { position: new Vec4(70, 50, -40, 1), target: new Vec4(0, 0, 1, 1) },
 
-        { position: new Vec4(50, 50, -20, 1), target: new Vec4(0, -0.05, 1, 1) },
-        { position: new Vec4(40, 50, -30, 1), target: new Vec4(0, -0.01, 1, 1) },
-        { position: new Vec4(20, 50, -50, 1), target: new Vec4(0, -0.01, 0.5, 1) },
-        { position: new Vec4(10, 50, -70, 1), target: new Vec4(0.5, -0.01, 1, 1) },
+        { position: new Vec4(50, 50, -20, 1), target: new Vec4(0, 0, 1, 1) },
+        { position: new Vec4(40, 50, -30, 1), target: new Vec4(0, 0, 1, 1) },
+        { position: new Vec4(20, 50, -50, 1), target: new Vec4(0, 0, 1, 1) },
+        { position: new Vec4(10, 50, -70, 1), target: new Vec4(0, 0, 1, 1) },
 
         { position: new Vec4(0, 50, -90, 1), target: new Vec4(0, -0.2, 1, 1) },
         { position: new Vec4(0, 50, -130, 1), target: new Vec4(0, -0.2, 1, 1) },
         { position: new Vec4(0, 50, -160, 1), target: new Vec4(0, -0.2, 1, 1) },
         { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
 
-        { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
-        { position: new Vec4(0, 50, -200, 1), target: new Vec4(0, -0.5, 1, 1) },
         { position: new Vec4(0, 50, -150, 1), target: new Vec4(0, -0.3, 1, 1) },
         { position: new Vec4(20, 50, -120, 1), target: new Vec4(0, -0.3, 1, 1) },
         { position: new Vec4(30, 50, -120, 1), target: new Vec4(0, -0.2, 1, 1) }
-
-    
-
     ]
 
     camera.setAnimationPath(camera_animation_path);
