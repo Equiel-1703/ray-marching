@@ -160,7 +160,6 @@ RayHit moon(vec3 point) {
     return ret;
 }
 
-
 RayHit rings(vec3 p) {
     RayHit ret;
 
@@ -195,13 +194,12 @@ vec3 get_ring_color(vec3 p, vec3 normal, vec3 viewDir) {
 float get_glow_intensity(vec3 p) {
     float distance_to_rings_edge = sdf_flat_disk(p, SATURN_POSITION, RING_INNER_RADIUS, RING_OUTER_RADIUS, RING_THICKNESS);
 
-    if (distance_to_rings_edge < RING_GLOW_RADIUS) {
+    if(distance_to_rings_edge < RING_GLOW_RADIUS) {
         // Normalize the distance to the ring edge (0 to 1)
         float glow_intensity = distance_to_rings_edge / RING_GLOW_RADIUS;
 
         // Now we will invert it, so the further away from the edge, the dimmer the glow and apply a power function
         glow_intensity = 1.0f - pow(glow_intensity, RING_GLOW_POWER);
-
 
         glow_intensity = max(glow_intensity, 0.0f); // Ensure non-negative
         return glow_intensity;
@@ -230,16 +228,16 @@ vec3 get_saturn_color(vec3 pos, vec3 normal, vec3 view_dir) {
     const vec3 band2_color = vec3(0.62f, 0.5f, 0.35f);  // Darker brown
     const vec3 polar_color = vec3(0.85f, 0.82f, 0.78f);  // Cool polar
 
-    // Corrected coordinate calculation (pure latitude-based)
+    // Coordinate calculation
     float latitude = degrees(asin(normal.y));  // -90 to +90 degrees
     float abs_lat = abs(latitude);
 
-    // Multi-scale bands (latitude only - no tilt)
-    float band_large = sin(latitude * 0.18f);         // Primary bands
-    float band_medium = sin(latitude * 0.6f) * 0.7f;   // Secondary bands
-    float band_detail = sin(latitude * 3.0f) * 0.3f;   // Fine details
+    // Multi-scale bands
+    float band_large = sin(latitude * 0.18f);           // Primary bands
+    float band_medium = sin(latitude * 0.6f) * 0.7f;    // Secondary bands
+    float band_detail = sin(latitude * 3.0f) * 0.3f;    // Fine details
 
-    // Combined pattern (vertical bands only)
+    // Combined pattern
     float pattern = band_large + band_medium + band_detail;
 
     // Band masking (sharper at equator, softer at poles)
@@ -276,7 +274,7 @@ RayHit scene(vec3 point) {
     // Find nearest solid object
     RayHit hits[NO_OBJECTS] = RayHit[NO_OBJECTS](moon, saturn, rings);
     RayHit nearest = hits[0];
-    
+
     for(int i = 1; i < NO_OBJECTS; i++) {
         if(hits[i].distance < nearest.distance) {
             nearest = hits[i];
@@ -347,16 +345,16 @@ const float LIGHT_INTENSITY = 1.0f; // Light intensity
 // This is a more stable method than using axis-aligned differences, specially for noisy surfaces
 vec3 get_normal(vec3 p) {
     // Larger epsilon for more stable results with noise
-    const float eps = 0.02;
-    
+    const float eps = 0.02f;
+
     // Tetrahedron normal calculation
     vec3 e = vec3(eps, -eps, 0);
     float d1 = scene(p + e.xyy).distance;
     float d2 = scene(p + e.yxy).distance;
     float d3 = scene(p + e.yyx).distance;
     float d4 = scene(p + e.xxx).distance;
-    
-    vec3 n = normalize(e.xyy*d1 + e.yxy*d2 + e.yyx*d3 + e.xxx*d4);
+
+    vec3 n = normalize(e.xyy * d1 + e.yxy * d2 + e.yyx * d3 + e.xxx * d4);
     return n;
 }
 
@@ -506,7 +504,6 @@ mat3 view_to_world_matrix(vec3 cam_location, vec3 target, vec3 up) {
     vec3 u = cross(s, f);
     return mat3(s, u, f);
 }
-
 
 void main() {
     // Calculate ray direction
